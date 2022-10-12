@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include <thread>
 #include <vector>
+#include <fstream>
 
 //print Macro for cout
 #define print(x); std::cout << x << std::endl
@@ -20,13 +21,13 @@
 
 static void help();
 bool StartsWith(String Str, String Start);
-void shell(String threadNum, String command);
+void shell(String threadNum, String command, bool ToLog);
 int len(std::vector<String> Vect);
 
 static void help()
 {
 	String TheName = "trd";
-	String Version = "0.1.0";
+	String Version = "0.1.01";
 	print("Author: Dan (DJ) Coffman");
 	print("Program: \"" << TheName << "\"");
 	print("Version: " << Version);
@@ -35,6 +36,9 @@ static void help()
 	print("{REQUIRED}")
 	print("\t-c <command/script>\t\t: run commands or script");
 	print("\t--command <command/script>\t: run commands or script");
+	print("");
+	print("{OPTIONAL}")
+	print("\t--log\t\t: save output to a log (each thread is its own log file)");
 	print("");
 	print("{EXAMPLE} Run three commands at once");
 	print("\t$ " << TheName << " -c ls -c \"echo hi\" -c \"whoami\"");
@@ -66,8 +70,9 @@ int len(std::vector<String> Vect)
 	return StrLen;
 }
 
-void shell(String threadNum, String command)
+void shell(String threadNum, String command, bool ToLog)
 {
+	std::ofstream myfile;
 	char buffer[128];
 
 	// Open pipe to file
@@ -77,18 +82,34 @@ void shell(String threadNum, String command)
 		error("popen failed!");
 	}
 
+	if (ToLog == true)
+	{
+		String filename = "{trd["+threadNum+"] \""+command+"\"}.log";
+		myfile.open(filename.c_str());
+	}
+
 	// read till end of process:
 	while (!feof(pipe))
 	{
 		// use buffer to read and add to result
 		if (fgets(buffer, 128, pipe) != NULL)
 		{
-//			std::cout << "{trd["+threadNum+"]} ";
-			std::cout << "{trd["+threadNum+"]} \""+command+"\"} ";
-//			std::cout << "{"+command+"} ";
-			std::cout << buffer;
-			//print(buffer);
+			if (ToLog == true)
+			{
+				myfile << buffer;
+			}
+			else
+			{
+				std::cout << "{trd["+threadNum+"] \""+command+"\"} ";
+				std::cout << buffer;
+			}
+
 		}
+	}
+
+	if (ToLog == true)
+	{
+		myfile.close();
 	}
 
 	pclose(pipe);
@@ -104,6 +125,7 @@ int main(int argc, char** argv)
 	String out = "";
 	String value = "";
 	int next = 0;
+	bool SaveToLog = false;
 	bool IsNotOk = true;
 	//Args were given
 	if (argc > 1)
@@ -125,6 +147,10 @@ int main(int argc, char** argv)
 					}
 				}
 			}
+			if (out == "--log")
+			{
+				SaveToLog = true;
+			}
 		}
 
 		numOfThreads = len(myCommands);
@@ -135,7 +161,7 @@ int main(int argc, char** argv)
 			{
 				int TrdN = lp + 1;
 				ThreadNum = Str(TrdN);
-				std::thread ThreadName(shell,ThreadNum,myCommands[lp]);
+				std::thread ThreadName(shell,ThreadNum,myCommands[lp],SaveToLog);
 				myThreads.push_back(move(ThreadName));
 			}
 			for (int lp = 0; lp != numOfThreads; lp++)
