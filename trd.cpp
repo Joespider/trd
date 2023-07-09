@@ -21,13 +21,13 @@
 
 static void help();
 bool StartsWith(String Str, String Start);
-void shell(String threadNum, String command, bool ToLog);
+void shell(String threadNum, String command, bool BeQuiet, bool ToLog, bool ToLogWithTrd);
 int len(std::vector<String> Vect);
 
 static void help()
 {
 	String TheName = "trd";
-	String Version = "0.1.01";
+	String Version = "0.1.03";
 	print("Author: Dan (DJ) Coffman");
 	print("Program: \"" << TheName << "\"");
 	print("Version: " << Version);
@@ -38,7 +38,14 @@ static void help()
 	print("\t--command <command/script>\t: run commands or script");
 	print("");
 	print("{OPTIONAL}")
-	print("\t--log\t\t: save output to a log (each thread is its own log file)");
+	print("\t-q\t\t\t\t: hide output");
+	print("\t--quiet\t\t\t\t: hide output");
+	print("");
+	print("\t--log\t\t\t\t: save output to a log (each thread is its own log file)");
+	print("\t\t\t\t\t: -c \"ls\" would save output in \"ls.log\"");
+	print("");
+	print("\t--log-trd\t\t\t: save output to a log (each thread is its own log file)");
+	print("\t\t\t\t\t: -c \"ls\" would save output in \"{trd[<number>] \"ls\"}.log\"");
 	print("");
 	print("{EXAMPLE} Run three commands at once");
 	print("\t$ " << TheName << " -c ls -c \"echo hi\" -c \"whoami\"");
@@ -70,7 +77,7 @@ int len(std::vector<String> Vect)
 	return StrLen;
 }
 
-void shell(String threadNum, String command, bool ToLog)
+void shell(String threadNum, String command, bool BeQuiet, bool ToLog, bool ToLogWithTrd)
 {
 	std::ofstream myfile;
 	char buffer[128];
@@ -82,9 +89,20 @@ void shell(String threadNum, String command, bool ToLog)
 		error("popen failed!");
 	}
 
-	if (ToLog == true)
+	//Save command output to a log file
+	if ((ToLog == true) || (ToLogWithTrd == true))
 	{
-		String filename = "{trd["+threadNum+"] \""+command+"\"}.log";
+		String filename = "";
+		if (ToLog == true)
+		{
+			//Generate File name for each thread
+			filename = command+".log";
+		}
+		else if (ToLogWithTrd == true)
+		{
+			//Generate File name for each thread
+			filename = "trd["+threadNum+"] \""+command+"\".log";
+		}
 		myfile.open(filename.c_str());
 	}
 
@@ -94,11 +112,11 @@ void shell(String threadNum, String command, bool ToLog)
 		// use buffer to read and add to result
 		if (fgets(buffer, 128, pipe) != NULL)
 		{
-			if (ToLog == true)
+			if ((ToLog == true) || (ToLogWithTrd == true))
 			{
 				myfile << buffer;
 			}
-			else
+			if (BeQuiet == false)
 			{
 				std::cout << "{trd["+threadNum+"] \""+command+"\"} ";
 				std::cout << buffer;
@@ -125,7 +143,10 @@ int main(int argc, char** argv)
 	String out = "";
 	String value = "";
 	int next = 0;
+	bool Quiet = false;
 	bool SaveToLog = false;
+	bool SaveToLogWithTrd = false;
+
 	bool IsNotOk = true;
 	//Args were given
 	if (argc > 1)
@@ -147,9 +168,19 @@ int main(int argc, char** argv)
 					}
 				}
 			}
-			if (out == "--log")
+			else if (out == "--log")
 			{
 				SaveToLog = true;
+				SaveToLogWithTrd = false;
+			}
+			else if (out == "--log-trd")
+			{
+				SaveToLog = false;
+				SaveToLogWithTrd = true;
+			}
+			else if ((out == "-q") || (out == "--quiet"))
+			{
+				Quiet = true;
 			}
 		}
 
@@ -161,7 +192,7 @@ int main(int argc, char** argv)
 			{
 				int TrdN = lp + 1;
 				ThreadNum = Str(TrdN);
-				std::thread ThreadName(shell,ThreadNum,myCommands[lp],SaveToLog);
+				std::thread ThreadName(shell,ThreadNum,myCommands[lp],Quiet,SaveToLog,SaveToLogWithTrd);
 				myThreads.push_back(move(ThreadName));
 			}
 			for (int lp = 0; lp != numOfThreads; lp++)
