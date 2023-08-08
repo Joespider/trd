@@ -27,7 +27,7 @@ int len(std::vector<String> Vect);
 static void help()
 {
 	String TheName = "trd";
-	String Version = "0.1.03";
+	String Version = "0.1.04";
 	print("Author: Dan (DJ) Coffman");
 	print("Program: \"" << TheName << "\"");
 	print("Version: " << Version);
@@ -49,15 +49,27 @@ static void help()
 	print("");
 	print("{EXAMPLE} Run three commands at once");
 	print("\t$ " << TheName << " -c ls -c \"echo hi\" -c \"whoami\"");
-	print("\t{trd[1]} \"ls\"} Desktop");
-	print("\t{trd[1]} \"ls\"} Documents");
-	print("\t{trd[1]} \"ls\"} Downloads");
-	print("\t{trd[1]} \"ls\"} Music");
-	print("\t{trd[1]} \"ls\"} Pictures");
-	print("\t{trd[1]} \"ls\"} Public");
-	print("\t{trd[1]} \"ls\"} Videos");
-	print("\t{trd[2]} \"echo hi\"} hi");
-	print("\t{trd[3]} \"whoami\"} user");
+	print("\t{trd[2] \"echo hi\" (line: 0000)} hi");
+	print("\t{trd[1] \"ls\" (line: 0000)} Desktop");
+	print("\t{trd[1] \"ls\" (line: 0001)} Documents");
+	print("\t{trd[1] \"ls\" (line: 0002)} Downloads");
+	print("\t{trd[1] \"ls\" (line: 0003)} Music");
+	print("\t{trd[1] \"ls\" (line: 0004)} Pictures");
+	print("\t{trd[1] \"ls\" (line: 0005)} Public");
+	print("\t{trd[1] \"ls\" (line: 0006)} Videos");
+	print("\t{trd[3] \"whoami\" (line: 0000)} user");
+	print("");
+	print("{EXAMPLE} To clean up the results in order of commands");
+	print("\t$ " << TheName << " -c ls -c \"echo hi\" -c \"whoami\"  | sort | sed \"s/ (line: ....)//g\"");
+	print("\t{trd[1] \"ls\"} Desktop");
+	print("\t{trd[1] \"ls\"} Documents");
+	print("\t{trd[1] \"ls\"} Downloads");
+	print("\t{trd[1] \"ls\"} Music");
+	print("\t{trd[1] \"ls\"} Pictures");
+	print("\t{trd[1] \"ls\"} Public");
+	print("\t{trd[1] \"ls\"} Videos");
+	print("\t{trd[2] \"echo hi\"} hi");
+	print("\t{trd[3] \"whoami\"} user");
 }
 
 //Check if string begins with substring
@@ -106,6 +118,7 @@ void shell(String threadNum, String command, bool BeQuiet, bool ToLog, bool ToLo
 		myfile.open(filename.c_str());
 	}
 
+	long count = 0;
 	// read till end of process:
 	while (!feof(pipe))
 	{
@@ -118,10 +131,25 @@ void shell(String threadNum, String command, bool BeQuiet, bool ToLog, bool ToLo
 			}
 			if (BeQuiet == false)
 			{
-				std::cout << "{trd["+threadNum+"] \""+command+"\"} ";
+				if (count < 10)
+				{
+					std::cout << "{trd["+threadNum+"] \""+command+"\" (line: 000" << count << ")} ";
+				}
+				else if ((count >= 10) && (count < 100))
+				{
+					std::cout << "{trd["+threadNum+"] \""+command+"\" (line: 00" << count << ")} ";
+				}
+				else if ((count >= 100) && (count < 1000))
+				{
+					std::cout << "{trd["+threadNum+"] \""+command+"\" (line: 0" << count << ")} ";
+				}
+				else
+				{
+					std::cout << "{trd["+threadNum+"] \""+command+"\" (line: " << count << ")} ";
+				}
 				std::cout << buffer;
+				count++;
 			}
-
 		}
 	}
 
