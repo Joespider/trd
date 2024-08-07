@@ -28,7 +28,7 @@ static void help()
 {
 	String TheName = "trd";
 	String Version = "0.1.04";
-	print("Author: Dan (DJ) Coffman");
+	print("Author: joespider");
 	print("Program: \"" << TheName << "\"");
 	print("Version: " << Version);
 	print("Purpose: \"run multiple commands at once\"");
