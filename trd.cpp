@@ -19,6 +19,8 @@
 //Str for to_strin()
 #define Str(x) std::to_string(x)
 
+String TheName = "";
+
 static void help();
 bool StartsWith(String Str, String Start);
 void shell(String threadNum, String command, bool BeQuiet, bool ToLog, bool ToLogWithTrd);
@@ -26,18 +28,17 @@ int len(std::vector<String> Vect);
 
 static void help()
 {
-	String TheName = "trd";
-	String Version = "0.1.04";
-	print("Author: Dan (DJ) Coffman");
+	String Version = "0.1.06";
+	print("Author: Joespider");
 	print("Program: \"" << TheName << "\"");
 	print("Version: " << Version);
 	print("Purpose: \"run multiple commands at once\"");
 	print("Usage: " << TheName << " <args>");
-	print("{REQUIRED}")
+	print("{REQUIRED}");
 	print("\t-c <command/script>\t\t: run commands or script");
 	print("\t--command <command/script>\t: run commands or script");
 	print("");
-	print("{OPTIONAL}")
+	print("{OPTIONAL}");
 	print("\t-q\t\t\t\t: hide output");
 	print("\t--quiet\t\t\t\t: hide output");
 	print("");
@@ -168,14 +169,18 @@ int main(int argc, char** argv)
 	std::vector<std::thread> myThreads;
 	int numOfThreads;
 	String ThreadNum;
-	String out = "";
+	String out = String(argv[0]);
 	String value = "";
 	int next = 0;
 	bool Quiet = false;
 	bool SaveToLog = false;
 	bool SaveToLogWithTrd = false;
-
 	bool IsNotOk = true;
+
+        //Parsing program name
+        std::size_t pos = out.rfind('/');
+	TheName = out.substr(pos + 1);
+	out = "";
 	//Args were given
 	if (argc > 1)
 	{
@@ -221,7 +226,7 @@ int main(int argc, char** argv)
 				int TrdN = lp + 1;
 				ThreadNum = Str(TrdN);
 				std::thread ThreadName(shell,ThreadNum,myCommands[lp],Quiet,SaveToLog,SaveToLogWithTrd);
-				myThreads.push_back(move(ThreadName));
+				myThreads.push_back(std::move(ThreadName));
 			}
 			for (int lp = 0; lp != numOfThreads; lp++)
 			{
