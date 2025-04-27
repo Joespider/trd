@@ -1,3 +1,4 @@
+//#include <cstdio>
 #include <iostream>
 #include <string>
 #include <unistd.h>
@@ -6,6 +7,7 @@
 #include <thread>
 #include <vector>
 #include <fstream>
+#include <filesystem>
 
 //print Macro for cout
 #define print(x); std::cout << x << std::endl
@@ -23,12 +25,15 @@ String TheName = "";
 
 static void help();
 bool StartsWith(String Str, String Start);
-void shell(String threadNum, String command, bool BeQuiet, bool ToLog, bool ToLogWithTrd);
+bool fexists(String aFile);
+void copyFile(String Old, String New);
+//void removeFile(String TheFile);
+void shell(String threadNum, String command, bool BeQuiet, bool BeQuietTag, bool ToLog, bool ToLogWithTrd);
 int len(std::vector<String> Vect);
 
 static void help()
 {
-	String Version = "0.1.06";
+	String Version = "0.1.08";
 	print("Author: Joespider");
 	print("Program: \"" << TheName << "\"");
 	print("Version: " << Version);
@@ -41,6 +46,8 @@ static void help()
 	print("{OPTIONAL}");
 	print("\t-q\t\t\t\t: hide output");
 	print("\t--quiet\t\t\t\t: hide output");
+	print("\t-qt\t\t\t\t: only show command output");
+	print("\t--quiet-tag\t\t\t: only show command output");
 	print("");
 	print("\t--log\t\t\t\t: save output to a log (each thread is its own log file)");
 	print("\t\t\t\t\t: -c \"ls\" would save output in \"ls.log\"");
@@ -90,7 +97,50 @@ int len(std::vector<String> Vect)
 	return StrLen;
 }
 
-void shell(String threadNum, String command, bool BeQuiet, bool ToLog, bool ToLogWithTrd)
+//check if file exists
+bool fexists(String aFile)
+{
+	bool IsFound = false;
+	std::ifstream ifile;
+	ifile.open(aFile);
+	if (ifile)
+	{
+		ifile.close();
+		IsFound = true;
+	}
+	return IsFound;
+}
+
+void copyFile(String Old, String New)
+{
+	String data;
+	std::ifstream read_file{ Old };
+	std::ofstream save_file{ New };
+	if (read_file && save_file)
+	{
+		while (std::getline(read_file, data))
+		{
+			save_file << data << "\n";
+		}
+	}
+	//Close
+	read_file.close();
+	save_file.close();
+}
+
+/*
+void removeFile(String TheFile)
+{
+
+	int passed = std::remove(TheFile);
+
+	if (passed != 0)
+	{
+		error("could not remove \""+TheFile+"\"");
+	}
+}
+*/
+void shell(String threadNum, String command, bool BeQuiet, bool BeQuietTag, bool ToLog, bool ToLogWithTrd)
 {
 	std::ofstream myfile;
 	char buffer[128];
@@ -130,23 +180,28 @@ void shell(String threadNum, String command, bool BeQuiet, bool ToLog, bool ToLo
 			{
 				myfile << buffer;
 			}
+			//suppress ALL output
 			if (BeQuiet == false)
 			{
-				if (count < 10)
+				//suppress tags
+				if (BeQuietTag == false)
 				{
-					std::cout << "{trd["+threadNum+"] \""+command+"\" (line: 000" << count << ")} ";
-				}
-				else if ((count >= 10) && (count < 100))
-				{
-					std::cout << "{trd["+threadNum+"] \""+command+"\" (line: 00" << count << ")} ";
-				}
-				else if ((count >= 100) && (count < 1000))
-				{
-					std::cout << "{trd["+threadNum+"] \""+command+"\" (line: 0" << count << ")} ";
-				}
-				else
-				{
-					std::cout << "{trd["+threadNum+"] \""+command+"\" (line: " << count << ")} ";
+					if (count < 10)
+					{
+						std::cout << "{trd["+threadNum+"] \""+command+"\" (line: 000" << count << ")} ";
+					}
+					else if ((count >= 10) && (count < 100))
+					{
+						std::cout << "{trd["+threadNum+"] \""+command+"\" (line: 00" << count << ")} ";
+					}
+					else if ((count >= 100) && (count < 1000))
+					{
+						std::cout << "{trd["+threadNum+"] \""+command+"\" (line: 0" << count << ")} ";
+					}
+					else
+					{
+						std::cout << "{trd["+threadNum+"] \""+command+"\" (line: " << count << ")} ";
+					}
 				}
 				std::cout << buffer;
 				count++;
@@ -171,11 +226,28 @@ int main(int argc, char** argv)
 	String ThreadNum;
 	String out = String(argv[0]);
 	String value = "";
+	String PipeIn = "/dev/stdin";
+	String PipeFile = "/tmp/trd.pipe";
 	int next = 0;
 	bool Quiet = false;
+	bool QuietTags = false;
 	bool SaveToLog = false;
 	bool SaveToLogWithTrd = false;
 	bool IsNotOk = true;
+	bool pipedData = false;
+
+	//piped in data is meant to be sent to commands
+	if(!isatty(fileno(stdin)))
+	{
+		pipedData = true;
+
+		if (fexists(PipeIn))
+		{
+			//copy file
+			copyFile(PipeIn, PipeFile);
+
+		}
+	}
 
         //Parsing program name
         std::size_t pos = out.rfind('/');
@@ -197,7 +269,14 @@ int main(int argc, char** argv)
                                         IsNotOk = StartsWith(value,"-");
                                         if (IsNotOk == false)
 					{
-						myCommands.push_back(value);
+						if (pipedData == true)
+						{
+							myCommands.push_back("cat "+PipeFile+" | "+value);
+						}
+						else
+						{
+							myCommands.push_back(value);
+						}
 					}
 				}
 			}
@@ -215,6 +294,10 @@ int main(int argc, char** argv)
 			{
 				Quiet = true;
 			}
+			else if ((out == "-qt") || (out == "--quiet-tag"))
+			{
+				QuietTags = true;
+			}
 		}
 
 		numOfThreads = len(myCommands);
@@ -225,12 +308,22 @@ int main(int argc, char** argv)
 			{
 				int TrdN = lp + 1;
 				ThreadNum = Str(TrdN);
-				std::thread ThreadName(shell,ThreadNum,myCommands[lp],Quiet,SaveToLog,SaveToLogWithTrd);
+				std::thread ThreadName(shell,ThreadNum,myCommands[lp],Quiet,QuietTags,SaveToLog,SaveToLogWithTrd);
 				myThreads.push_back(std::move(ThreadName));
 			}
 			for (int lp = 0; lp != numOfThreads; lp++)
 			{
 				myThreads[lp].join();
+			}
+
+			if (pipedData == true)
+			{
+				int passed = std::remove("/tmp/trd.pipe");
+
+				if (passed != 0)
+				{
+					error("could not remove \"/tmp/trd.pipe\"");
+				}
 			}
 		}
 		else
